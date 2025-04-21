@@ -1,86 +1,133 @@
-'use client'
-import React, { useEffect, useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 const FieldPropertiesPanel = ({
   selectedField,
   fieldsetName,
+  onChangeLabel,
+  onChangeOptions,
   onDeleteField,
-  onApplyChanges,
   onChangeFieldsetName,
+  onApplyChanges
 }) => {
-  const [labelName, setLabelName] = useState('')
-  const [options, setOptions] = useState([])
-  const [fieldsetInput, setFieldsetInput] = useState('')
+  const [labelName, setLabelName] = useState(selectedField?.labelName || "");
+const [options, setOptions] = useState(selectedField?.options || []);
+  const [newOption, setNewOption] = useState('')
 
   useEffect(() => {
     if (selectedField) {
       setLabelName(selectedField.labelName)
       setOptions(selectedField.options || [])
-      setFieldsetInput(fieldsetName || '')
     }
-  }, [selectedField, fieldsetName])
+  }, [selectedField])
 
-  if (!selectedField) return null
+  const handleOptionChange = (index, value) => {
+    const updatedOptions = [...options]
+    updatedOptions[index] = value
+    setOptions(updatedOptions)
+  }
 
-  const handleApply = () => {
+  const handleAddOption = () => {
+    if (newOption.trim() !== '') {
+      setOptions([...options, newOption.trim()])
+      setNewOption('')
+    }
+  }
+
+  const handleRemoveOption = (index) => {
+    const updatedOptions = options.filter((_, i) => i !== index)
+    setOptions(updatedOptions)
+  }
+
+  const handleLabelChange = (event) => {
+    setLabel(event.target.value)
+    onChangeLabel(event.target.value)
+  }
+
+  
+
+  return (
+    <div className="border-2 p-4 rounded-md shadow-lg bg-white max-w-xs mx-auto">
+      <h3 className="text-lg font-semibold mb-4">Field Properties</h3>
+      <div className="mb-4">
+        <label className="block mb-2">Fieldset Name</label>
+        <input
+          type="text"
+          className="w-full px-3 py-2 border rounded-md"
+          value={fieldsetName}
+          onChange={(e) => onChangeFieldsetName(e.target.value)}
+        />
+      </div>
+
+      <div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700">Label Name</label>
+  <input
+    type="text"
+    value={labelName}
+    onChange={(e) => setLabelName(e.target.value)}
+    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+  />
+</div>
+      {selectedField?.inputType === 'select' || selectedField?.inputType === 'radio' ? (
+        <>
+          <div className="mb-4">
+            <label className="block mb-2">Options</label>
+            {options.map((option, index) => (
+              <div key={index} className="flex justify-between items-center mb-2">
+                <input
+                  type="text"
+                  className="w-3/4 px-3 py-2 border rounded-md"
+                  value={option}
+                  onChange={(e) => handleOptionChange(index, e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="ml-2 text-red-500"
+                  onClick={() => handleRemoveOption(index)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div className="flex mb-4">
+              <input
+                type="text"
+                className="w-3/4 px-3 py-2 border rounded-md"
+                value={newOption}
+                onChange={(e) => setNewOption(e.target.value)}
+                placeholder="Add new option"
+              />
+              <button
+                type="button"
+                className="ml-2 text-green-500"
+                onClick={handleAddOption}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      <div className="flex justify-between mt-4">
+        <button
+          type="button"
+          className="text-red-500"
+          onClick={onDeleteField}
+        >
+          Delete Field
+        </button>
+        <button
+  className="px-4 py-2 bg-blue-500 text-white rounded"
+  onClick={() => {
     onApplyChanges({
       ...selectedField,
       labelName,
       options,
-    })
-    onChangeFieldsetName(fieldsetInput)
-  }
-
-  const handleDelete = () => {
-    onDeleteField()
-  }
-
-  return (
-    <div className="w-1/4 p-4 h-fit border-l bg-gray-50">
-      <h2 className="font-semibold text-lg mb-4">Field Properties</h2>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Field Label</label>
-        <input
-          className="w-full border px-3 py-2 rounded"
-          value={labelName}
-          onChange={(e) => setLabelName(e.target.value)}
-        />
-      </div>
-
-      {Array.isArray(options) && options.length > 0 && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-1">Options (comma separated)</label>
-          <input
-            className="w-full border px-3 py-2 rounded"
-            value={options.join(',')}
-            onChange={(e) => setOptions(e.target.value.split(','))}
-          />
-        </div>
-      )}
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-1">Fieldset Name</label>
-        <input
-          className="w-full border px-3 py-2 rounded"
-          value={fieldsetInput}
-          onChange={(e) => setFieldsetInput(e.target.value)}
-        />
-      </div>
-
-      <div className="flex space-x-2">
-        <button
-          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-          onClick={handleApply}
-        >
-          Apply
-        </button>
-        <button
-          className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-          onClick={handleDelete}
-        >
-          Delete
-        </button>
+    });
+  }}
+>
+  Apply
+</button>
       </div>
     </div>
   )
