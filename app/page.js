@@ -13,7 +13,7 @@ export default function Home() {
       <div className="w-2/6 md:w-1/5 px-6 py-3">
         <Sidebar/>
       </div>
-      <div className=" overflow-y-auto py-3 md:w-3/5">
+      <div className=" overflow-y-auto py-3 md:w-4/5">
         <FormBuilder/>
       </div>
       

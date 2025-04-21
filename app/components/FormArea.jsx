@@ -1,33 +1,41 @@
 
 
 'use client'
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useDrop } from 'react-dnd'
 import { v4 as uuidv4 } from 'uuid'
+import FieldPropertiesPanel from './FieldPropertiesPanel'
+
 
 const FormBuilder = () => {
   const [fieldsets, setFieldsets] = useState([])
-  const [fieldsetCount, setFieldsetCount] = useState(1) // 🔥 Ensures unique fieldset names
   console.log(fieldsets)
-  const handleDropToNewFieldset = (item) => {
-    setFieldsetCount((prev) => {
-      const id = uuidv4()
-      const newField = buildField(item)
+  const [selectedField, setSelectedField] = useState(null)
+const [selectedFieldsetIndex, setSelectedFieldsetIndex] = useState(null)
+  const isHandlingDrop = useRef(false)
+
+    const handleDropToNewFieldset = (item) => {
+    if (isHandlingDrop.current) return
+    isHandlingDrop.current = true
+    setTimeout(() => {
+      isHandlingDrop.current = false
+    }, 100)
+  
+    const newField = buildField(item)
+    const id = uuidv4()
+  
+    setFieldsets((prev) => {
+      const nextFieldsetNum = prev.length + 1
   
       const newFieldset = {
-        fieldsetName: `Fieldset ${prev}`, // ✅ Use the current value here
+        fieldsetName: `Fieldset ${nextFieldsetNum}`,
         fieldsetTextId: `fieldset-${id}`,
         fields: [newField],
       }
   
-      setFieldsets((prevFieldsets) => [...prevFieldsets, newFieldset])
-      return prev + 1 // ✅ return the incremented value
+      return [...prev, newFieldset]
     })
   }
-  
-  
-  
-
   const buildField = (item) => {
     const defaultOptions =
       item.type === 'select'
@@ -49,9 +57,7 @@ const FormBuilder = () => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'FIELD',
     drop: (item, monitor) => {
-      // 🔥 Prevent drop propagation
       if (monitor.didDrop()) return
-  
       handleDropToNewFieldset(item)
       return { handled: true }
     },
@@ -59,39 +65,136 @@ const FormBuilder = () => {
       isOver: !!monitor.isOver({ shallow: true }),
     }),
   }))
-  
 
   const handleDropToExistingFieldset = (item, index) => {
     const newField = buildField(item)
-    const updated = [...fieldsets]
-    updated[index].fields.push(newField)
-    setFieldsets(updated)
+    setFieldsets((prevFieldsets) =>
+      prevFieldsets.map((fs, i) =>
+        i === index ? { ...fs, fields: [...fs.fields, newField] } : fs
+      )
+    )
   }
 
+  const updateField = (fieldsetId, fieldId, updatedField) => {
+    setFieldsets(prev =>
+      prev.map(fs =>
+        fs.fieldsetTextId === fieldsetId
+          ? {
+              ...fs,
+              fields: fs.fields.map(f =>
+                f.labelTextId === fieldId ? { ...f, ...updatedField } : f
+              ),
+            }
+          : fs
+      )
+    )
+  }
+  const handleFieldClick = (fieldsetIndex, field) => {
+    setSelectedField(field)
+    setSelectedFieldsetIndex(fieldsetIndex)
+  }
+  const handleUpdateField = (updatedField) => {
+    setFieldsets((prev) =>
+      prev.map((fs, i) => {
+        if (i !== selectedFieldsetIndex) return fs;
+  
+        const updatedFields = fs.fields.map((f) =>
+          f.labelTextId === updatedField.labelTextId ? updatedField : f
+        )
+  
+        return {
+          ...fs,
+          fields: updatedFields,
+        }
+      })
+    )
+  
+    // Close panel
+    setSelectedField(null)
+    setSelectedFieldsetIndex(null)
+  }
+  
+  const handleUpdateFieldsetName = (newName) => {
+    setFieldsets((prev) =>
+      prev.map((fs, i) =>
+        i === selectedFieldsetIndex ? { ...fs, fieldsetName: newName } : fs
+      )
+    )
+  }
+  const handleDeleteField = () => {
+    setFieldsets((prev) =>
+      prev.map((fs, i) =>
+        i === selectedFieldsetIndex
+          ? {
+              ...fs,
+              fields: fs.fields.filter((f) => f.labelTextId !== selectedField.labelTextId),
+            }
+          : fs
+      )
+    )
+    setSelectedField(null)
+    setSelectedFieldsetIndex(null)
+  }
+  const updateFieldsetName = (fieldsetId, newName) => {
+    setFieldsets(prev =>
+      prev.map(fs =>
+        fs.fieldsetTextId === fieldsetId ? { ...fs, fieldsetName: newName } : fs
+      )
+    )
+  }
+  const handleApply = () => {
+    if (!selectedField) return;
+    onApplyChanges(selectedField);
+    onChangeFieldsetName(fieldsetNameInput);
+  }
   return (
-    <div
-      ref={drop}
-      className={`p-4 border-2 min-h-screen rounded border-dashed ${isOver ? 'border-green-400 bg-green-50' : 'border-gray-300'}`}
-    >
-      {fieldsets.length === 0 && (
-        <p className="text-gray-500 italic text-sm">Drag a field to get started...</p>
-      )}
-      {fieldsets.map((fs, i) => (
-        <Fieldset
-          key={fs.fieldsetTextId}
-          fieldset={fs}
-          onDropField={(item) => handleDropToExistingFieldset(item, i)}
-        />
-      ))}
+    <div className="">
+      <h2 className="text-lg font-semibold mb-4">Your Modules</h2>
+      <div
+        ref={drop}
+        className={` border-2 min-h-screen rounded w-3/4 ${isOver ? 'border-green-400 bg-green-50' : ''}`}
+      >
+        {fieldsets.length === 0 && (
+          <p className="text-gray-500 italic text-sm">Drag a field to get started...</p>
+        )}
+        {fieldsets.map((fs, i) => (
+          <Fieldset
+            key={fs.fieldsetTextId}
+            fieldset={fs}
+            onFieldClick={(field) => handleFieldClick(i, field)}
+            onDropField={(item) => handleDropToExistingFieldset(item, i)}
+            setSelectedField={setSelectedField}
+            updateFieldsetName={updateFieldsetName}
+          />
+        ))}
+      </div>
+      <FieldPropertiesPanel
+  selectedField={selectedField}
+  fieldsetName={
+    selectedFieldsetIndex !== null
+      ? fieldsets[selectedFieldsetIndex]?.fieldsetName
+      : ''
+  }
+  onChangeLabel={(label) =>
+    setSelectedField((prev) => ({ ...prev, labelName: label }))
+  }
+  onChangeOptions={(options) =>
+    setSelectedField((prev) => ({ ...prev, options }))
+  }
+  
+  onDeleteField={handleDeleteField}
+  onChangeFieldsetName={handleUpdateFieldsetName}
+  onApplyChanges={(updatedField) => handleUpdateField(updatedField)}
+/>
     </div>
   )
 }
 
-const Fieldset = ({ fieldset, onDropField }) => {
+const Fieldset = ({ fieldset, onDropField, setSelectedField, updateFieldsetName }) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'FIELD',
     drop: (item, monitor) => {
-      if (monitor.didDrop()) return // ✅ prevent duplicate handling
+      if (monitor.didDrop()) return
       onDropField(item)
       return { handled: true }
     },
@@ -99,17 +202,22 @@ const Fieldset = ({ fieldset, onDropField }) => {
       isOver: !!monitor.isOver(),
     }),
   }))
-  
 
   return (
     <fieldset
       ref={drop}
       className={`mb-6 p-4 border rounded bg-white shadow-sm transition-all ${isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200'}`}
     >
-      <legend className="font-semibold text-lg mb-4">{fieldset.fieldsetName}</legend>
+      <input
+        className="font-semibold text-lg mb-4 w-full border-b"
+        value={fieldset.fieldsetName}
+        onChange={(e) => updateFieldsetName(fieldset.fieldsetTextId, e.target.value)}
+      />
       <div className="space-y-4">
         {fieldset.fields.map((field, idx) => (
-          <Field key={field.labelTextId + idx} field={field} />
+          <div onClick={() => setSelectedField({ ...field, fieldsetId: fieldset.fieldsetTextId })} key={field.labelTextId + idx}>
+            <Field field={field} />
+          </div>
         ))}
       </div>
     </fieldset>
@@ -126,23 +234,23 @@ const Field = ({ field }) => {
     case 'date':
     case 'file':
       return (
-        <div>
+        <div className="p-4 border-gray-300 border rounded-lg ">
           <label className="block mb-1 font-medium text-sm">{field.labelName}</label>
-          <input type={field.inputType} placeholder={field.labelName} className={common} />
+          <input type={field.inputType} placeholder={field.labelName} className={common} disabled />
         </div>
       )
     case 'textarea':
       return (
-        <div>
+        <div className="p-4 border-gray-300 border rounded-lg ">
           <label className="block mb-1 font-medium text-sm">{field.labelName}</label>
-          <textarea placeholder={field.labelName} className={`${common} resize-none`} rows="3" />
+          <textarea placeholder={field.labelName} className={`${common} resize-none`} rows="3" disabled />
         </div>
       )
     case 'select':
       return (
-        <div>
+        <div className="p-4 border-gray-300 border rounded-lg ">
           <label className="block mb-1 font-medium text-sm">{field.labelName}</label>
-          <select className={common}>
+          <select className={common} disabled>
             {field.options.map((opt, i) => (
               <option key={i} value={opt}>{opt}</option>
             ))}
@@ -152,18 +260,18 @@ const Field = ({ field }) => {
     case 'checkbox':
       return (
         <div className="flex items-center space-x-2">
-          <input type="checkbox" className="form-checkbox" />
+          <input type="checkbox" className="form-checkbox" disabled />
           <label>{field.labelName}</label>
         </div>
       )
     case 'radio':
       return (
-        <div>
+        <div className="p-4 border-gray-300 border rounded-lg ">
           <label className="block mb-1 font-medium text-sm">{field.labelName}</label>
           <div className="space-x-4">
             {field.options.map((opt, i) => (
               <label key={i} className="inline-flex items-center space-x-1">
-                <input type="radio" name={field.labelTextId} />
+                <input type="radio" name={field.labelTextId} disabled />
                 <span>{opt}</span>
               </label>
             ))}
@@ -176,4 +284,3 @@ const Field = ({ field }) => {
 }
 
 export default FormBuilder
-
