@@ -8,22 +8,25 @@ import { v4 as uuidv4 } from 'uuid'
 const FormBuilder = () => {
   const [fieldsets, setFieldsets] = useState([])
   const [fieldsetCount, setFieldsetCount] = useState(1) // 🔥 Ensures unique fieldset names
-
+  console.log(fieldsets)
   const handleDropToNewFieldset = (item) => {
-    const newField = buildField(item)
+    setFieldsetCount((prev) => {
+      const id = uuidv4()
+      const newField = buildField(item)
   
-    setFieldsetCount((prevCount) => {
-      const id = uuidv4() // ✅ Generate the ID inside the closure
       const newFieldset = {
-        fieldsetName: `Fieldset ${prevCount}`,
+        fieldsetName: `Fieldset ${prev}`, // ✅ Use the current value here
         fieldsetTextId: `fieldset-${id}`,
         fields: [newField],
       }
   
-      setFieldsets((prev) => [...prev, newFieldset])
-      return prevCount + 1
+      setFieldsets((prevFieldsets) => [...prevFieldsets, newFieldset])
+      return prev + 1 // ✅ return the incremented value
     })
   }
+  
+  
+  
 
   const buildField = (item) => {
     const defaultOptions =
@@ -46,14 +49,17 @@ const FormBuilder = () => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'FIELD',
     drop: (item, monitor) => {
-      const didDrop = monitor.didDrop()
-      if (!didDrop) handleDropToNewFieldset(item)
+      // 🔥 Prevent drop propagation
+      if (monitor.didDrop()) return
+  
+      handleDropToNewFieldset(item)
       return { handled: true }
     },
     collect: (monitor) => ({
       isOver: !!monitor.isOver({ shallow: true }),
     }),
   }))
+  
 
   const handleDropToExistingFieldset = (item, index) => {
     const newField = buildField(item)
@@ -84,7 +90,8 @@ const FormBuilder = () => {
 const Fieldset = ({ fieldset, onDropField }) => {
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'FIELD',
-    drop: (item) => {
+    drop: (item, monitor) => {
+      if (monitor.didDrop()) return // ✅ prevent duplicate handling
       onDropField(item)
       return { handled: true }
     },
@@ -92,6 +99,7 @@ const Fieldset = ({ fieldset, onDropField }) => {
       isOver: !!monitor.isOver(),
     }),
   }))
+  
 
   return (
     <fieldset
